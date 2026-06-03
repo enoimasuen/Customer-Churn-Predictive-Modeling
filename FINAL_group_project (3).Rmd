@@ -1,0 +1,1162 @@
+---
+title: "HARVARD EXTENSION SCHOOL"
+subtitle: "CSCI E-106: Statistical Data Modeling Class Group Project Template"
+author: 
+- Andrew Smock (41802707)
+- Enoghayin Imasuen (31679354)
+- Lily Nguyen (81814465)
+- Tim Bohlemann (51818342)
+tags: [logistic regression, boosted trees, random forest, ensemble methods, data cleaning, classification]
+abstract: |
+  
+  The ABC Multinational Bank client retention research team, or *Harry Plotter and the Chamber of Refits*, conducted an analysis of a large data set containing information on our clientele. The data set includes many different continuous and categorical variables, and whether or not a client "churned," or left the bank. Why are some clients leaving ABC Multinational Bank while others are staying? The goal of this study is to identify key factors that influence customer churn and optimize predictive models that will aid in aswering that question. Our team constructed a linear regression, random forest, and a c5.0 boosted model. The c5.0 boosted model demonstrated the strongest predictive performance, achieving an accuracy of an accuracy of 84.7% and an AUC of 0.863 on the test set.
+  
+  Harry Plotter and the Chamber of Refits assessed model performance using a variety of evaluation metrics such as AUC, model accuracy, MSE, and RMSE, along with comparisons of training and test results to evaluate generalization and stability. In addition to predictive performance, we also considered model interpretability when selecting our chamion model given its importance in banking applications. While logistic regression offered greater transparency, the boosted c5.0 model provided the best overall balance between performance and reliability. The resulting model provides a robust tool for identifying customers at risk of churn, which will ultimately aid in clientele retention, mitigate churn rates, and boost profits for the company.
+date: "`r format(Sys.time(), '%d %B %Y')`"
+geometry: margin=1.3cm
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+  html_document:
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: 72
+bibliography: refs.bib
+---
+\newpage
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(knitr)
+library(pander)
+library(rmarkdown)
+library(markdown)
+library(MASS)
+library(faraway)
+library(olsrr)
+library(datasets)
+library(caret)
+library('fastDummies')
+library(ISLR2)
+library(dplyr)
+library(car)
+library(lmtest)
+library(tree)
+library(leaps)
+library(ResourceSelection)
+library(C50)
+library(randomForest)
+library(neuralnet)
+library(tidyverse)
+library(caret)
+library(janitor)
+library(skimr)
+library(GGally)
+library(pROC)
+library(rpart)
+library(rpart.plot)
+library(pscl)
+library(patchwork)
+bank <- read.csv("Bank Customer Churn Prediction.csv")
+bank_raw <- bank
+```
+\newpage
+### Every bank wants to hold there customers for sustaining their business so the ABC Multinational bank. The objective is to classify whether a Bank ABC customer is a high-risk of changing Bank. "Churn" is used as the target. 1 if the client has left the bank during some period or 0 if he/she has not using the predictors listed below (use "Bank Customer Churn Prediction.csv" file for your final project).
+
+| Response Variable| Description |
+| churn| *1 if the client has left the bank during some period or 0 if he/she has not.*    |
+
+
+| Variable| Description |
+| :-------:| :------- |
+| customer_id| **Account Number**    |
+| credit_score| *credit score*    |
+| country| *Name of the Country*    |
+| gender| *Female or Male*    |
+| age| *age*    |
+| tenure| *How many years as client*    |
+| balance| *Account Balance*    |
+| products_number| *Number of products of the Bank*    |
+| credit_card| *0 -- no, 1--yes*    |
+| active_member| *0 -- no, 1--yes*    |
+| estimated_salary| *Salary*    |
+
+
+\newpage
+### Instructions:
+0.  You may present the Project individually or join a team with your fellow students with appropriate size (Up to four Students total), if you need my help allocating you to a group let me know (rafael_gomeztagle@g.harvard.edu)
+
+1.  Load and Review the dataset named "Bank Customer Churn Prediction.csv"
+2.	Create a model development document that describes the model using this template, input the name of the authors, Harvard IDs, the name of the Group, all of your code and calculations, etc..:
+
+**Notes**
+**No typographical errors, grammar mistakes, or misspelled words, use English language**
+**All tables need to be numbered and describe their content in the body of the document**
+**All figures/graphs need to be numbered and describe their content**
+**All results must be accurate and clearly explained for a casual reviewer to fully understand their purpose and impact**
+**Submit both the RMD markdown file and PDF with the sections with appropriate explanations. A more formal document in Word can be used in place of the pdf file but must include all appropriate explanations.**
+
+## Executive Summary
+
+This project developed a predictive model to identify customers at high risk of churning (i.e. changing banks) from ABC Multinational Bank, enabling proactive retention strategies such as personalized offers and improved customer engagement. Three classification models were trained and evaluated on a dataset of 10,000 customers: Logistic Regression, Boosted C5.0, and Random Forest. The Boosted C5.0 algorithm was selected as the champion model due to its superior performance, achieving an AUC of 0.863, F1 score of 0.689, and accuracy of 84.7% on the test set. Logistic Regression was retained as the benchmark for its interpretability: its odds ratios provide regulatory transparency. Key limitations include reduced explainability compared with Logistic Regression, sensitivity to class imbalance, and the model capturing patterns rather than causal relationships. Ongoing monthly monitoring using AUC and Population Stability Index is recommended to ensure continued effectiveness in deployment.
+
+
+\newpage
+## I. Introduction (5 points)
+
+We at the ABC Multinational Bank are analyzing and interpreting a data set with information on 10,000 of our clients in hopes to better classify whether or not a customer is at high-risk of leaving the bank -- and therefore losing us money. Through rigorous testing we have developed an optimized model to help apply targeted customer retention strategies before a loss of clientele. The data set we tested on contains information on demographics, account behavior, and product usage, including *credit score, country (location of clientele), gender, age, tenure as a client, account balance, number of products of the regional Bank (products number), credit card ownership, active membership status, and estimated salary*. Our model balances predictive accuracy, stability on the test sample (we used a 70%/30% training to testing sample split), and interpretability to output a "churn" value -- a churn value of 1 indicates the client left ABC Multinational Bank during the observed period, while a value of 0 indicates successful clientele retention.
+
+Our research team considered and compared multiple methods in order to find the most suitable model for predicting churn values. These included logistic regression, simple decision trees, and boosted decision trees.
+
+
+\newpage
+## II. Description of the data and quality (15 points)
+
+The clientele information data set is very high quality and suitable for model training. There are no missing values nor any duplicated rows. The predictors include a mix of continuous and categorical variables. *Credit score, age, tenure, products number, balance, and estimated salary* are continuous, while *country, gender, credit card ownership, and active member status* are categorical. This means we had to construct dummy variables for the categorical variables in order to adequately build our model. However, prior to implementing our dummy variables, we performed diagnostic testing on the data set. Our findings were as follows:
+
+The response variable *churn* is rather imbalanced, with 20.4% of clients leaving the bank, while 79.6% stayed (refer to Figure 1 below). This means when analyzing our model, accuracy alone may not be sufficient. In addition to accuracy, we evaluated model sensitivity and specificity, as well as the ROC curve and AUC. Several of the predictor variables show particularly meaningful differences when plotted against churn status. The distribution of age, as seen in Figure 2, is skewed right, with most clients being 25 to 40 years old. Figures 3 and 4 provide evidence that older clients, along with clients who have a higher account balance, are *on average* more likely to leave the ABC Multinational Bank. On top of age and account balance, gender has a noticeable impact on churn rates, with female clients having a higher probability of leaving the bank. France and Spain have virtually the same churn proportions (at 16% and 17% respectively), while Germany sees higher rates of clients leaving, with a 32% proportion. Figure 7 shows that the status of a member (*either active or not*) has a significant impact on churn rates. Active members are nearly half as likely to leave the bank (14% vs 27% for non-active members). Figure 8 informs us that estimated salary has a very minimal impact on churn probability. The final figure showing churn proportion by number of products reveals an interesting finding. *All* clients with a bank with four products churned, and a large majority (83%) of clients at a bank with three products churned as well. Banks with only two products seemed to perform the best, with a churn rate of only 7.6%. It is important to note, however, that only a small portion of the total data set represents banks with 3 or 4 products.
+
+```{r, include=FALSE}
+# No na.omit needed since there are no missing values
+colSums(is.na(bank))
+
+# Drop customer_id
+bank <- bank %>% select(-customer_id)
+
+# Check for duplicate rows
+sum(duplicated(bank)) #no duplicated lines
+
+# Factor variables
+bank <- bank %>%
+  mutate(
+  credit_card = factor(credit_card, levels = c(0, 1), labels = c("No", "Yes")),
+  active_member = factor(active_member, levels = c(0, 1), labels = c("No", "Yes")),
+  country = factor(country, levels = c("France", "Spain", "Germany")),
+  gender = factor(gender, levels = c("Female", "Male")),
+  churn = factor(churn, levels = c(0, 1), labels=c("No", "Yes"))
+)
+```
+
+
+```{r, include=FALSE}
+# Save factored data for later models
+bank_factor <- bank
+head(bank_factor)
+str(bank_factor)
+
+# Build dummy variables for logistic regression model
+bank <- dummy_cols(
+  bank, select_columns = c("credit_card", "active_member", "country", "gender"),
+  remove_first_dummy = TRUE, remove_selected_columns = TRUE
+)
+
+head(bank)
+str(bank)
+```
+
+
+```{r, echo = FALSE, fig.width = 12, fig.height = 10}
+# plots:
+theme_set(theme_minimal())
+
+p1_AS <- ggplot(bank_factor, aes(x = churn)) +
+  geom_bar(fill = "steelblue") +
+  labs(
+    title = "Figure 1. Distribution of Churn",
+    x = "Churn",
+    y = "Count"
+  )
+
+p2_AS <- ggplot(bank_factor, aes(x = age)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  labs(
+    title = "Fig 2. Distribution of Customer Age",
+    x = "Age",
+    y = "Count"
+  )
+
+p3_AS <- ggplot(bank_factor, aes(x = churn, y = age, fill = churn)) +
+  geom_boxplot() +
+  labs(
+    title = "Fig 3. Age by Churn Status",
+    x = "Churn",
+    y = "Age"
+  ) +
+  guides(fill = "none")
+
+p4_AS <- ggplot(bank_factor, aes(x = churn, y = balance, fill = churn)) +
+  geom_boxplot() +
+  labs(
+    title = "Fig 4. Balance by Churn Status",
+    x = "Churn",
+    y = "Balance"
+  ) +
+  guides(fill = "none")
+
+p5_AS <- ggplot(bank_factor, aes(x = gender, fill = churn)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Fig 5. Churn Proportion by Gender",
+    x = "Gender",
+    y = "Proportion",
+    fill = "Churn"
+  )
+
+p6_AS <- ggplot(bank_factor, aes(x = country, fill = churn)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Fig 6. Churn Proportion by Country",
+    x = "Country",
+    y = "Proportion",
+    fill = "Churn"
+  )
+
+# excluded
+p7_AS <- ggplot(bank_factor, aes(x = churn, y = tenure, fill = churn)) +
+  geom_boxplot() +
+  labs(
+    title = "Figure 7. Tenure by Churn Status",
+    x = "Churn",
+    y = "Tenure"
+  ) +
+  guides(fill = "none")
+
+# excluded
+p8_AS <- ggplot(bank_factor, aes(x = credit_card, fill = churn)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Figure 8. Churn Proportion by Credit Card Status",
+    x = "Credit Card",
+    y = "Proportion",
+    fill = "Churn"
+  )
+
+p9_AS <- ggplot(bank_factor, aes(x = active_member, fill = churn)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Fig 7. Churn Proportion by Member Status",
+    x = "Active Member",
+    y = "Proportion",
+    fill = "Churn"
+  )
+
+p10_AS <- ggplot(bank_factor, aes(x = churn, y = estimated_salary, fill = churn)) +
+  geom_boxplot() +
+  labs(
+    title = "Fig 8. Estimated Salary by Churn Status",
+    x = "Churn",
+    y = "Estimated Salary"
+  ) +
+  guides(fill = "none")
+
+p11_AS <- ggplot(bank_factor, aes(x = products_number, fill = churn)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Fig 9. Churn Proportion by Products #",
+    x = "Number of Products",
+    y = "Proportion",
+    fill = "Churn"
+  )
+
+(p1_AS + p2_AS + p3_AS + p4_AS + p5_AS + p6_AS + p9_AS + p10_AS + p11_AS) +
+  plot_layout(ncol = 3)
+```
+
+```{r, echo=FALSE}
+summary(bank) # data summary
+
+# Extreme values / ranges
+bank %>%
+  summarise(
+    min_credit_score = min(credit_score, na.rm = TRUE),
+    max_credit_score = max(credit_score, na.rm = TRUE),
+    min_age = min(age, na.rm = TRUE),
+    max_age = max(age, na.rm = TRUE),
+    min_tenure = min(tenure, na.rm = TRUE),
+    max_tenure = max(tenure, na.rm = TRUE),
+    min_balance = min(balance, na.rm = TRUE),
+    max_balance = max(balance, na.rm = TRUE),
+    min_products = min(products_number, na.rm = TRUE),
+    max_products = max(products_number, na.rm = TRUE),
+    min_salary = min(estimated_salary, na.rm = TRUE),
+    max_salary = max(estimated_salary, na.rm = TRUE)
+  )
+```
+
+```{r, include=FALSE}
+# class balance
+table(bank_raw$churn)
+prop.table(table(bank_raw$churn))
+
+# churn by selected categorical predictors
+tabyl(bank_raw, gender, churn)
+tabyl(bank_raw, country, churn)
+tabyl(bank_raw, credit_card, churn)
+tabyl(bank_raw, active_member, churn)
+tabyl(bank_raw, products_number, churn)
+
+prop.table(table(bank_raw$gender, bank$churn), 1)
+prop.table(table(bank_raw$country, bank$churn), 1)
+prop.table(table(bank_raw$credit_card, bank$churn), 1)
+prop.table(table(bank_raw$active_member, bank$churn), 1)
+prop.table(table(bank_raw$products_number, bank$churn), 1)
+
+# product 4
+table(bank_raw$products_number, bank$churn)
+
+# correlation among numeric variables
+Bank.Num <- bank %>%
+  mutate(churn01 = ifelse(churn == "Yes", 1, 0)) %>%
+  select(churn01, credit_score, age, tenure, products_number, balance, estimated_salary)
+
+round(cor(Bank.Num), 2)
+```
+
+```{r, echo = FALSE}
+print("Total Churn Values and Rates:")
+table(bank_factor$churn)
+prop.table(table(bank_factor$churn))
+
+print("Churn Rates by Country:")
+prop.table(table(bank_factor$country, bank_factor$churn), 1)
+
+print("Churn Rates by Active Member Status:")
+prop.table(table(bank_factor$active_member, bank_factor$churn), 1)
+
+print("Churn Rates and Total Values by Product Number:")
+prop.table(table(bank_factor$products_number, bank_factor$churn), 1)
+table(bank_factor$products_number, bank_factor$churn)
+```
+
+\newpage
+## III. Model Development Process (15 points)
+
+```{r, echo=FALSE}
+head(bank)
+str(bank)
+
+set.seed(1023)
+train_id <- createDataPartition(bank$churn, p = 0.70, list = FALSE)
+train <- bank[train_id, ]
+test <- bank[-train_id, ]
+
+# Verify 70-30 split
+cat("Train split:", (nrow(train) / nrow(bank)) * 100, "%")
+cat("Test split: ", (nrow(test) / nrow(bank)) * 100, "%")
+
+# Check churn proportion
+cat("Train churn rate:", round(mean(train$churn == "Yes"), 4) * 100, "%")
+cat("Test churn rate:", round(mean(train$churn == "Yes"), 4) * 100, "%")
+```
+
+We chose a logistic regression model as our model due to the nature of our data. More specifically, we selected our model using stepwise AIC variable selection over the full logistic regression model due to better performance on certain metrics.
+
+```{r}
+logit_full <- glm(churn ~ ., data=train, family="binomial")
+summary(logit_full)
+
+logit_step <- stepAIC(logit_full, direction="both", trace=FALSE)
+summary(logit_step)
+```
+
+The final stepwise logistic regression model retained credit_score, age, balance, active_member_Yes, country_Germany, and gender as predictors of churn. Age, balance, active membership, being located in Germany, and gender were significant at the 5% level. Older customers and customers with higher account balances exhibited higher odds of churn, while active members and male customers exhibited lower odds of churn. Customers located in Germany were significantly more likely to churn than customers in the reference country. The final model reduced deviance substantially relative to the null model, indicating that the retained predictors provide meaningful explanatory power. The model substantially improved fit relative to the intercept-only model, reducing deviance from 7077.6 to 5973.5.
+
+```{r}
+# Compute odds ratios
+exp(coef(logit_step))
+
+# 95% CI for predictors
+exp(confint(logit_step))
+```
+
+Odds-ratio analysis confirmed that age, balance, active membership status, customer location in Germany, and gender were key drivers of churn in the final logistic regression model [@Gareth2014]. Each additional year of age increased churn odds by about 7.7%, while active members had about 66% lower odds of churn than inactive members. Customers in Germany had approximately 1.98 times the odds of churn relative to the reference country, and male customers had lower odds of churn than female customers. Higher balances were also associated with increased churn risk, although the effect is best interpreted over larger balance changes because balance is measured in small units. Credit score had a statistically significant but modest protective effect, whereas tenure and number of products were only marginally significant.
+
+Compute VIF to check for multicollinearity:
+```{r}
+vif(logit_step)
+```
+
+All VIF values are close to 1, with the highest value equal to 1.187 for balance. These results indicate no evidence of problematic multicollinearity, suggesting that the coefficient estimates are stable and interpretable [@Gareth2014].
+
+First we will perform any metric calculations that are not dependent on a prediction threshold cutoff. We check the Brier score (MSE), RMSE, SSE as follows:
+
+```{r, echo=FALSE}
+probs_logit <- predict(logit_step, newdata=train, type="response")
+actual_numeric <- ifelse(train$churn== "Yes", 1, 0)
+
+brier_logit <- mean((actual_numeric - probs_logit)^2)
+rmse_logit <- sqrt(mean((actual_numeric - probs_logit)^2))
+sse_logit <- sum((actual_numeric - probs_logit)^2)
+
+r <- cbind(
+  "Brier Score (MSE)"=brier_logit,
+  RMSE=rmse_logit,
+  SSE=sse_logit
+); rownames(r) <- "Probability Calibration Metrics"; r
+```
+
+The logistic regression model had a Brier score of 0.135, which suggests that on average, the model's predicted probabilities deviate from the true outcomes by a modest amount [@UVABrier]. The corresponding RMSE of 0.367 also reflects moderate prediction error on the probability scale. The SSE was 945.325. However, this metric is scale-dependent and less informative than the two other metrics [@Gareth2014].
+
+Compute the pseudo-$R^2$:
+
+```{r, echo=FALSE}
+pr2_logit <- pR2(logit_step); pr2_logit
+```
+
+The final logistic regression model achieved a McFadden pseudo-$R^2$ of 0.156, indicating a meaningful improvement in fit relative to the intercept-only model. Although pseudo-$R^2$ values in logistic regression are not interpreted the same way as ordinary pseudo-$R^2$ in linear regression, this result suggests that the selected predictors provide a moderate and useful level of explanatory power for customer churn [@Long1997].
+
+Next, we perform a Hosmer-Lemeshow goodness-of-fit test:
+
+**Hypotheses**:
+$$
+H_0: \text{model fits the data well}\\
+$$
+$$
+H_a: \text{model does not fit the data well}
+$$
+
+**Decision rule**: At the 5% significance level, if p < 0.05, then reject $H_0$. Otherwise, fail to reject $H_0$.
+
+```{r, echo=FALSE}
+hoslem.test(actual_numeric, probs_logit)
+```
+
+**Conclusion**: At the 5% significance level, since the p-value is greater than 0.05, we fail to reject $H_0$. There is sufficient evidence to suggest the model fits the data well [@HosmerLemeshow2000].
+
+We first check the ROC curve and AUC [@Fawcett2006] before deciding which cutoff to choose:
+
+```{r, echo=FALSE}
+probs_logit <- predict(logit_step, newdata = train, type = "response")
+roc_logit <- roc(response = train$churn, predictor = probs_logit, levels = c("No", "Yes"))
+
+plot(roc_logit, main = "ROC Curve - Logistic Regression")
+auc(roc_logit)
+```
+
+The model achieved an AUC of 0.7624, meaning that in approximately 76.24% of randomly selected churner versus non-churner pairs, the model assigns a higher predicted probability to the churner. This indicates moderate discriminatory ability. While the model provides useful separation between customers who churn and those who do not, its ranking performance is only fair to acceptable rather than strong.
+
+Finally, we actually try predicting churns two options by introducing a decision rule cutoff[@kennedy_2024]. To determine what cutoff seems best - and if deviating from the trivial choice 0.5 is useful at all - one may build a function for simulation purposes.
+
+```{r, echo=FALSE}
+evaluate_cutoff_short <- function(prob, actual, cutoff = 0.5) {
+  pred <- ifelse(prob > cutoff, "Yes", "No")
+  pred <- factor(pred, levels = c("No", "Yes"))
+  actual <- factor(actual, levels = c("No", "Yes"))
+  
+  cm <- confusionMatrix(pred, actual, positive="Yes")
+  
+  data.frame(
+    Cutoff = cutoff,
+    TN = as.numeric(cm$table["No", "No"]),
+    FP = as.numeric(cm$table["Yes", "No"]),
+    FN = as.numeric(cm$table["No", "Yes"]),
+    TP = as.numeric(cm$table["Yes", "Yes"]),
+    Accuracy = as.numeric(cm$overall["Accuracy"]),
+    Sensitivity = as.numeric(cm$byClass["Sensitivity"]),
+    Specificity = as.numeric(cm$byClass["Specificity"]),
+    Precision = as.numeric(cm$byClass["Precision"]),
+    Recall = as.numeric(cm$byClass["Recall"]),
+    F1 = as.numeric(cm$byClass["F1"]),
+    Balanced_Accuracy = as.numeric(cm$byClass["Balanced Accuracy"])
+  )
+}
+
+# Test cutoffs from 0.3 to 0.5
+res <- rbind(
+  evaluate_cutoff_short(probs_logit, train$churn, cutoff = 0.5),
+  evaluate_cutoff_short(probs_logit, train$churn, cutoff = 0.45),
+  evaluate_cutoff_short(probs_logit, train$churn, cutoff = 0.4),
+  evaluate_cutoff_short(probs_logit, train$churn, cutoff = 0.35),
+  evaluate_cutoff_short(probs_logit, train$churn, cutoff = 0.3))
+
+knitr::kable(res,
+  digits = c(2, 0, 0, 0, 0, 4, 4, 4, 4, 4, 4, 4),
+  caption = "Key Cutoff Selection Metrics for the Final Logistic Regression Model")
+```
+
+Among the tested probability cutoffs, 0.35 provided the best overall balance between identifying churners and controlling false positives. While the 0.30 cutoff achieved the highest sensitivity, F1 score, and balanced accuracy, it also generated substantially more false positives and a lower precision rate. The 0.35 cutoff offered a stronger compromise, improving sensitivity meaningfully over 0.40 and 0.50 while maintaining better specificity and precision than 0.30. For this reason, 0.35 was selected as the final operational cutoff for the logistic regression model. Going forward, we will therefore only analyze that model:
+
+```{r, echo=FALSE}
+pred_logit <- as.factor(ifelse(probs_logit > 0.35, "Yes", "No"))
+
+cm_logit_train <- confusionMatrix(
+  pred_logit,
+  train$churn,
+  positive="Yes",
+  mode="prec_recall"
+); cm_logit_train
+
+knitr::kable(
+  data.frame(
+    Metric = c(
+      "TN", "FP", "FN", "TP",
+      "Accuracy", "Kappa", "Sensitivity", "Specificity",
+      "Precision", "Recall", "F1", "NPV", "Prevalence",
+      "Detection Rate", "Detection Prevalence",
+      "Balanced Accuracy", "AUC", "SSE", "RMSE"
+    ),
+    `Logistic Regression (0.35 cutoff)` = c(
+      as.integer(cm_logit_train$table["No", "No"]),
+      as.integer(cm_logit_train$table["Yes", "No"]),
+      as.integer(cm_logit_train$table["No", "Yes"]),
+      as.integer(cm_logit_train$table["Yes", "Yes"]),
+      sprintf("%.4f", as.numeric(cm_logit_train$overall["Accuracy"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$overall["Kappa"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Sensitivity"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Specificity"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Precision"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Recall"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["F1"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Neg Pred Value"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Prevalence"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Detection Rate"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Detection Prevalence"])),
+      sprintf("%.4f", as.numeric(cm_logit_train$byClass["Balanced Accuracy"])),
+      sprintf("%.4f", as.numeric(auc(roc_logit))),
+      sprintf("%.4f", sum((actual_numeric - probs_logit)^2)),
+      sprintf("%.4f", sqrt(mean((actual_numeric - probs_logit)^2)))
+    ),
+    check.names = FALSE
+  ),
+  caption = "Transposed Final Summary Metrics for the Logistic Regression Model on Train Data at a 0.35 Cutoff"
+)
+```
+
+On the train set, our stepwise selected logistic regression model achieved an accuracy of 79.4%, which is very close to the no information rate of 78.97%. This reflects the class imbalance. While precision (50.5%) and recall (42.1%) indicate moderate ability in identifying churners, the relatively low F1 score (45.9%) and balanced accuracy (65.8%) suggest the model performs better at identifying non-churners than it does for churners. Overall, our model demonstrates moderate in-sample performance.
+
+
+\newpage
+## IV. Model Performance Testing (15 points)
+
+```{r, echo=FALSE}
+probs_logit_test <- predict(logit_step, newdata=test, type="response")
+pred_logit_test <- as.factor(ifelse(probs_logit_test > 0.35, "Yes", "No"))
+
+roc_logit_test <- roc(response=test$churn, predictor=probs_logit_test, levels=c("No", "Yes"))
+plot(roc_logit_test, main = "ROC Curve - Logistic Regression")
+auc(roc_logit_test)
+```
+
+The model achieved an AUC of 0.7624, meaning that in approximately 76.24% of randomly selected churner versus non-churner pairs, the model assigns a higher predicted probability to the churner [@Fawcett2006]. This indicates moderate discriminatory ability. While the model provides useful separation between customers who churn and those who do not, its ranking performance is only fair to acceptable rather than strong. 
+
+```{r, echo=FALSE}
+actual_numeric_test <- ifelse(test$churn== "Yes", 1, 0)
+
+brier_logit_test <- mean((actual_numeric_test - probs_logit_test)^2)
+rmse_logit_test <- sqrt(mean((actual_numeric_test - probs_logit_test)^2))
+sse_logit_test <- sum((actual_numeric_test - probs_logit_test)^2)
+
+cm_logit_test <- confusionMatrix(
+  pred_logit_test,
+  test$churn,
+  positive="Yes",
+  mode="prec_recall"
+); cm_logit_test
+
+knitr::kable(
+  data.frame(
+    Metric = c(
+      "TN", "FP", "FN", "TP",
+      "Accuracy", "Kappa", "Sensitivity", "Specificity",
+      "Precision", "Recall", "F1", "NPV", "Prevalence",
+      "Detection Rate", "Detection Prevalence",
+      "Balanced Accuracy", "AUC", "SSE", "RMSE"
+    ),
+    `Logistic Regression (0.35 cutoff)` = c(
+      as.integer(cm_logit_test$table["No", "No"]),
+      as.integer(cm_logit_test$table["Yes", "No"]),
+      as.integer(cm_logit_test$table["No", "Yes"]),
+      as.integer(cm_logit_test$table["Yes", "Yes"]),
+      sprintf("%.4f", as.numeric(cm_logit_test$overall["Accuracy"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$overall["Kappa"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Sensitivity"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Specificity"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Precision"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Recall"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["F1"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Neg Pred Value"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Prevalence"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Detection Rate"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Detection Prevalence"])),
+      sprintf("%.4f", as.numeric(cm_logit_test$byClass["Balanced Accuracy"])),
+      sprintf("%.4f", as.numeric(auc(roc_logit_test))),
+      sprintf("%.4f", sum((actual_numeric_test - probs_logit_test)^2)),
+      sprintf("%.4f", sqrt(mean((actual_numeric_test - probs_logit_test)^2)))
+    ),
+    check.names = FALSE
+  ),
+  caption = "Transposed Final Summary Metrics for the Logistic Regression Model on Test Data at a 0.35 Cutoff"
+)
+
+r_logit <- cbind(
+  "Brier score (MSE)"=c(brier_logit, brier_logit_test),
+  RMSE=c(rmse_logit, rmse_logit_test),
+  SSE=c(sse_logit, sse_logit_test),
+  Accuracy=c(cm_logit_train$overall["Accuracy"], cm_logit_test$overall["Accuracy"]),
+  Precision=c(cm_logit_train$byClass["Precision"], cm_logit_test$byClass["Precision"]),
+  Recall=c(cm_logit_train$byClass["Recall"], cm_logit_test$byClass["Recall"]),
+  "F1 score"=c(cm_logit_train$byClass["F1"], cm_logit_test$byClass["F1"]),
+  AUC=c(auc(roc_logit), auc(roc_logit_test))
+)
+rownames(r_logit) <- c("Logistic Train", "Logistic Test"); data.frame(r_logit)
+```
+
+The logistic regression model showed similar performance on the train and test sets, which indicates the model generalizes well and that there is no evidence of overfitting. Brier score and RMSE increased only slightly from the train to test set, and classification metrics (accuracy, precision, recall, F1) were roughly the same. The model demonstrates moderate predictive performance on both sets, though it has limited ability to detect churners likely due to the class imbalance. 
+
+
+\newpage
+## V. Challenger Models (15 points)
+
+We use `bank_factor`, our factored dataset from earlier for these models.
+
+```{r, echo=FALSE}
+head(bank_factor)
+str(bank_factor)
+
+# Train-test 70-30 split
+set.seed(1023)
+
+train_id <- createDataPartition(bank_factor$churn, p = 0.70, list = FALSE)
+train_factor <- bank_factor[train_id, ]
+test_factor <- bank_factor[-train_id, ]
+
+# Verify 70-30 split
+cat("Train split:", (nrow(train_factor) / nrow(bank_factor)) * 100, "%")
+cat("Test split: ", (nrow(test_factor) / nrow(bank_factor)) * 100, "%")
+
+cat("Train churn rate:", round(mean(train_factor$churn== "Yes") * 100, 1), "%")
+cat("Test churn rate:", round(mean(test_factor$churn== "Yes") * 100, 1), "%")
+```
+
+### Challenger 1: Boosted C5.0 Tree 
+
+The first challenger model we build is a Boosted C5.0 model [@Perner2018].
+
+```{r, echo=FALSE}
+model_boost <- C5.0(churn ~ ., data=train_factor, trials=25, type="prob"); model_boost
+
+probs_boost <- predict(model_boost, newdata=train_factor, type="prob")[, "Yes"]
+```
+
+We test different probability cutoffs and analyze metrics for each [@kennedy_2024]:
+
+```{r, echo=FALSE}
+# test different probabililty cutoffs 0.3 to 0.5
+res <- rbind(
+  evaluate_cutoff_short(probs_boost, train_factor$churn, cutoff = 0.5),
+  evaluate_cutoff_short(probs_boost, train_factor$churn, cutoff = 0.45),
+  evaluate_cutoff_short(probs_boost, train_factor$churn, cutoff = 0.4),
+  evaluate_cutoff_short(probs_boost, train_factor$churn, cutoff = 0.35),
+  evaluate_cutoff_short(probs_boost, train_factor$churn, cutoff = 0.3)
+)
+
+knitr::kable(res,
+  digits = c(2, 0, 0, 0, 0, 4, 4, 4, 4, 4, 4),
+  caption = "Testing Probability Cutoffs from 0.3 to 0.5 for C5.0 Boosted Model")
+```
+
+While a cutoff of 0.30 achieves the highest recall it results in a large number of false positives and lower precision, which is less desirable. The **0.35** cutoff (consistent with the logistic regression model) maintains strong recall while significantly improving precision and reducing false positives. Strong recall is important when considering identifying customer churn for this bank. This cutoff also results in high overall performance metrics such as F1 score and balanced accuracy.
+
+Evaluate model on train data:
+
+```{r, echo=FALSE}
+# Evaluate model on train data
+pred_boost <- as.factor(ifelse(probs_boost > 0.35, "Yes", "No"))
+
+# Evaluate probabilities
+brier_boost <- mean((actual_numeric - probs_boost)^2)
+rmse_boost <- sqrt(mean((actual_numeric - probs_boost)^2))
+sse_boost <- sum((actual_numeric - probs_boost)^2)
+
+roc_boost <- roc(actual_numeric, probs_boost)
+
+r <- rbind(
+  "Brier score (MSE)"=round(brier_boost, 5),
+  RMSE=round(rmse_boost, 5),
+  SSE=round(sse_boost, 5)
+); colnames(r) <- "Boosted C5.0 Train"; r
+
+# classification metrics
+cm_boost_train <- confusionMatrix(
+  data=pred_boost,
+  reference=train_factor$churn,
+  positive="Yes",
+  mode="prec_recall"
+); cm_boost_train
+```
+
+The C5.0 boosted model showed strong in-sample performance with an accuracy of 87.77%, which is substantially higher than the no-information rate of 79.63%. Precision (71.49%), recall (66.48%), and F1-score (68.9%) showed good ability to identify churners, and the balanced accuracy of 79.85% suggests solid performance across both classes. In terms of probability metrics, the boosted C5.0 model also achieves a lower Brier score and RMSE, which indicates more accurate probability predictions than the logistic regression model [@UVABrier]. The boosted C5.0 model substantially outperforms logistic regression on the training set, though we must assess test set performance in case there is overfitting.
+
+Evaluate model on test data:
+
+```{r, echo=FALSE}
+# Evaluate C5.0 boosted model on test set
+probs_boost_test <- predict(model_boost, newdata=test_factor, type="prob")[, "Yes"]
+pred_boost_test <- as.factor(ifelse(probs_boost_test > 0.35, "Yes", "No"))
+
+# Evaluate probabilities
+brier_boost_test <- mean((actual_numeric_test - probs_boost_test)^2)
+rmse_boost_test <- sqrt(mean((actual_numeric_test - probs_boost_test)^2))
+sse_boost_test <- sum((actual_numeric_test - probs_boost_test)^2) 
+
+roc_boost_test <- roc(actual_numeric_test, probs_boost_test)
+
+# Classfication metrics
+cm_boost_test <- confusionMatrix(
+  data=pred_boost_test,
+  reference=test_factor$churn,
+  positive="Yes",
+  mode="prec_recall"
+); cm_boost_test
+
+# Aggregate boosted C5.0 results
+r_boost <- cbind(
+  "Brier score (MSE)"=c(brier_boost, brier_boost_test),
+  RMSE=c(rmse_boost, rmse_boost_test),
+  SSE=c(sse_boost, sse_boost_test),
+  Accuracy=c(cm_boost_train$overall["Accuracy"], cm_boost_test$overall["Accuracy"]),
+  Precision=c(cm_boost_train$byClass["Precision"], cm_boost_test$byClass["Precision"]),
+  Recall=c(cm_boost_train$byClass["Recall"], cm_boost_test$byClass["Recall"]),
+  "F1 score"=c(cm_boost_train$byClass["F1"], cm_boost_test$byClass["F1"]),
+  AUC=c(auc(roc_boost), auc(roc_boost_test))
+)
+rownames(r_boost) <- c("Boosted C5.0 Train", "Boosted C5.0 Test"); data.frame(r_boost)
+```
+
+The boosted C5.0 model demonstrated strong performance, though some overfitting is evident. The Brier score increased from the train to test set, meaning there was a decline in the probability prediction accuracy. Similarly, the accuracy decreased from 87.8% to 84.7% in the test set. The precision, recall, and F1 scores were also slightly lower when evaluated on the test set. Despite this performance drop, however, the model still achieves relatively strong test performance compared to logistic regression, so we can assume this model has good predictive ability and minimal overfitting.
+
+```{r, echo=FALSE}
+# plot ROC curve
+plot(roc_boost_test, col="steelblue", lwd=2, main="Test ROC Curve for Boosted C5.0 Model")
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+auc(roc_boost_test)
+```
+
+The model had a small drop in AUC from 0.90 in the train set to 0.86 in the test set which indicates minimal overfitting and good generalization [@Fawcett2006].
+
+
+### Challenger 2: Random Forest
+
+A random forest extends the decision tree by averaging predictions across 
+500 trees, each trained on a bootstrap sample with a random subset of 
+predictors at each split. This reduces variance and produces a more stable, 
+higher-performing classifier. OOB error provides an unbiased estimate of 
+generalization error without needing a separate validation set [@Perner2018].
+
+```{r, echo=FALSE}
+set.seed(1023)
+model_rf <- randomForest(churn ~ credit_score + country + gender + age +
+                           balance + products_number + credit_card + active_member,
+                         data = train_factor,
+                         ntree = 500,
+                         mtry = 3,
+                         classwt = c(No = 1, Yes = 4),
+                         importance = TRUE)
+print(model_rf)
+```
+
+The Random Forest model achieved an out-of-bag (OOB) error rate of 16.1%, which indicates good overall predictive performance. However, the confusion matrix shows an imbalance in classification performance, with a lower error rate for non-churners (9.1%) and a high error rate for churners (43.3%).
+
+We applied class weights (`No = 1`, `Yes = 4`) to penalize misclassification of churners more heavily. While this shifts the model's focus toward the minority class, the relatively high error rate for churners suggests that imbalance remains an issue.
+
+```{r, echo=FALSE}
+varImpPlot(model_rf, main = "Random Forest Variable Importance")
+```
+
+The variable importance plot shows that age and products_number are the most important based on Mean Decrease Accuracy, meaning they have a strong impact on model performance. Based on Mean Decrease Gini, age, balance, and credit_score are the most important, which suggests they are frequently used in tree splits.
+
+Evaluate train set performance:
+
+```{r, echo=FALSE}
+# Evaluate train set performance
+probs_rf <- predict(model_rf, newdata=train_factor, type = "prob")[, "Yes"]
+pred_rf <- factor(ifelse(probs_rf > 0.5, "Yes", "No"), levels = c("No","Yes"))
+
+# Evaluate probabilities
+brier_rf <- mean((actual_numeric - probs_rf)^2)
+rmse_rf <- sqrt(mean((actual_numeric - probs_rf)^2))
+sse_rf <- sum((actual_numeric - probs_rf)^2)
+
+roc_rf <- roc(actual_numeric, probs_rf)
+
+cm_rf_train <- confusionMatrix(
+  pred_rf,
+  train_factor$churn,
+  mode="prec_recall",
+  positive = "Yes"); cm_rf_train
+```
+
+Evaluate test set performance:
+
+```{r, echo=FALSE}
+# Evaluate test set performance
+probs_rf_test <- predict(model_rf, newdata=test_factor, type = "prob")[, "Yes"]
+pred_rf_test <- factor(ifelse(probs_rf_test > 0.5, "Yes", "No"), levels = c("No","Yes"))
+
+# Evaluate probabilities
+brier_rf_test <- mean((actual_numeric_test - probs_rf_test)^2)
+rmse_rf_test <- sqrt(mean((actual_numeric_test - probs_rf_test)^2))
+sse_rf_test <- sum((actual_numeric_test - probs_rf_test)^2)
+
+roc_rf_test <- roc(actual_numeric_test, probs_rf_test)
+
+cm_rf_test <- confusionMatrix(
+  pred_rf_test,
+  test_factor$churn,
+  mode="prec_recall",
+  positive = "Yes"); cm_rf_test
+
+# Aggregate Random Forest results
+r_rf <- cbind(
+  "Brier score (MSE)"=c(brier_rf, brier_rf_test),
+  RMSE=c(rmse_rf, rmse_rf_test),
+  SSE=c(sse_rf, sse_rf_test),
+  Accuracy=c(cm_rf_train$overall["Accuracy"], cm_rf_test$overall["Accuracy"]),
+  Precision=c(cm_rf_train$byClass["Precision"], cm_rf_test$byClass["Precision"]),
+  Recall=c(cm_rf_train$byClass["Recall"], cm_rf_test$byClass["Recall"]),
+  "F1 score"=c(cm_rf_train$byClass["F1"], cm_rf_test$byClass["F1"]),
+  AUC=c(auc(roc_rf), auc(roc_rf_test))
+)
+rownames(r_rf) <- c("Random Forest Train", "Random Forest Test"); data.frame(r_rf)
+```
+
+The random forest model showed strong performance with a test AUC of 0.858, the highest of the three models so far. We applied class weights of No = 1 and Yes = 4 to correct for the 80/20 class imbalance, which improved the sensitivity while minimizing AUC loss. Performance decreased from the train to test set (e.g., accuracy went down from 98.1% to 84.4%), which suggests moderate overfitting and poor generalization. The increase in Brier score and RMSE also indicates slightly less accurate probability predictions out-of-sample. Overall, the model had solid predictive performance on the test set, though its ability to detect churners (recall $\approx$ 0.61) remains moderate.
+
+**ROC Curve Comparison on Test Data**
+
+```{r, echo=FALSE}
+par(mar=c(5, 4, 6, 2))
+plot(roc_logit_test, col = "steelblue", lwd = 2)
+plot(roc_boost_test, col = "darkorange", lwd = 2, add = TRUE)
+plot(roc_rf_test,   col = "darkgreen",  lwd = 2, add = TRUE)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+legend("bottomright",
+       legend = c(paste("Logistic Regression AUC =", round(auc(roc_logit_test), 3)),
+                  paste("Boosted C5.0           AUC =", round(auc(roc_boost_test),  3)),
+                  paste("Random Forest        AUC =", round(auc(roc_rf_test),    3))),
+       col = c("steelblue","darkorange","darkgreen"), lwd = 2, cex = 0.8)
+title("ROC Curve Comparison on Test Data", cex=1.5, line=5)
+```
+
+The boosted C5.0 model had the most optimal ROC curve and the highest AUC. It had the best discrimination across all thresholds [@Fawcett2006].
+
+**Model Comparison Table**
+
+```{r, echo=FALSE}
+perf_tbl <- data.frame(
+  Model       = c("Logistic Regression","Boosted C5.0","Random Forest"),
+  Accuracy    = round(c(cm_logit_test$overall["Accuracy"],
+                        cm_boost_test$overall["Accuracy"],
+                        cm_rf_test$overall["Accuracy"]), 4),
+  Sensitivity = round(c(cm_logit_test$byClass["Sensitivity"],
+                        cm_boost_test$byClass["Sensitivity"],
+                        cm_rf_test$byClass["Sensitivity"]), 4),
+  Specificity = round(c(cm_logit_test$byClass["Specificity"],
+                        cm_boost_test$byClass["Specificity"],
+                        cm_rf_test$byClass["Specificity"]), 4),
+  Precision = round(c(cm_logit_test$byClass["Precision"],
+                        cm_boost_test$byClass["Precision"],
+                        cm_rf_test$byClass["Precision"]), 4),
+  Recall = round(c(cm_logit_test$byClass["Recall"],
+                        cm_boost_test$byClass["Recall"],
+                        cm_rf_test$byClass["Recall"]), 4),
+  "F1 Score" = round(c(cm_logit_test$byClass["F1"],
+                        cm_boost_test$byClass["F1"],
+                        cm_rf_test$byClass["F1"]), 4),
+  AUC         = round(c(auc(roc_logit_test), auc(roc_boost_test), auc(roc_rf_test)), 4),
+  MSE         = round(c(brier_logit_test, brier_boost_test, brier_rf_test), 4),
+  RMSE        = round(c(rmse_logit_test, rmse_boost_test, rmse_rf_test), 4),
+  row.names   = NULL
+)
+kable(perf_tbl, caption = "Out of Sample Model Performance Comparison")
+```
+
+Given the class imbalance in the dataset (~20% churn), we applied different strategies across the models to improve detection of the minority class. Logistic regression addresses class imbalance through threshold tuning, whereas random forest incorporates class weighting during training, leading to improved detection of churners. The Boosted C5.0 model is inherently less sensitive to class imbalance, but we also used threshold adjustments to improve this model [@kennedy_2024].
+
+\newpage
+## VI. Model Limitations and Assumptions (15 points)
+
+### 6.1 Champion and Benchmark Selection
+
+Based on Table 7, two models are designated for ongoing use:
+
+- **Champion Model: Boosted C5.0** - Selected for its superior test set performance and stability when generalizing on unseen data. It achieved the highest AUC, accuracy, and lowest prediction error (Brier score, RMSE), meaning its probability estimates were the most well-calibrated. In addition, it had the highest F1 score, which indicates good balance between precision and recall.
+
+- **Benchmark: Logistic Regression** — While logistic regression offers greater interpretability through its odds ratios, it performed substantially worse than the boosted C5.0 and Random Forest models on key metrics such as AUC and F1 score. Given the objective of accurately identifying churners, the improvement in predictive performance provided by the boosted model outweighs the loss in interpretability in this context.
+
+- **Random Forest** — The Random Forest model performed strongly and achieved metrics similar to those of the Boosted C5.0 model on the test set. However, it was highly unstable when evaluated on unseen data and does not generalize well given the train set accuracy of 98.1% and test set accuracy of 84.5%.
+
+
+### 6.2 Logistic Regression Assumptions
+
+#### 6.2.1 Assessment of Assumptions
+
+```{r assumption-table, echo=FALSE}
+assumptions <- data.frame(
+  Assumption = c("Binary outcome",
+                 "Independence of observations",
+                 "No severe multicollinearity",
+                 "Linear log-odds relationship",
+                 "Adequate sample size",
+                 "No complete separation"),
+  Status = c("Met — churn is 0/1",
+             "Met — cross-sectional data, one row per customer",
+             "Met — all VIF < 2 (Table 3)",
+             "Partially met — age may have non-linear effect",
+             "Met — 7,001 training observations",
+             "Met — No evidence of complete separation after proper variable encoding")
+)
+kable(assumptions, caption = "Logistic Regression Assumption Assessment")
+```
+
+4 of the 6 assumptions were fully met for the Logistic Regression model, though age non-linearity in particular is a concern [@bobbitt_2020].
+
+#### 6.2.2 Box-Tidwell Test
+
+The Box-Tidwell test checks whether the log-odds relationship is truly 
+linear in continuous predictors. A significant interaction term 
+(variable x log(variable)) signals non-linearity.
+
+```{r box-tidwell, echo=FALSE}
+train_bt <- train %>%
+  mutate(churn_num = as.numeric(churn) - 1,
+         age_log   = log(age) * age,
+         bal_log   = ifelse(balance > 0, log(balance) * balance, 0),
+         cs_log    = log(credit_score) * credit_score)
+
+bt_model <- glm(churn_num ~ age + age_log + balance + bal_log + 
+                  credit_score + cs_log,
+                data = train_bt, family = binomial)
+summary(bt_model)
+```
+
+The Box-Tidwell test results indicate that the interaction terms for age, balance, and credit score are statistically significant, which suggests these predictors do not have a linear relationship with the log-odds of churn. This violates the linearity assumption of logistic regression. Transformations or polynomial terms are worth exploring in future models [@Leung2021].
+
+
+### 6.3 Residuals and Normality
+
+For logistic regression, residuals are not required to be normally 
+distributed — this is an OLS assumption that does not apply here. 
+For random forest there are no distributional assumptions at all [@Perner2018].
+
+```{r oob-plot, fig.cap="Random Forest OOB Error Rate", echo=FALSE}
+plot(model_rf, main = "Random Forest OOB Error Rate by Number of Trees")
+legend("topright", legend = colnames(model_rf$err.rate),
+       col = 1:3, lty = 1:3, cex = 0.8)
+```
+
+OOB error stabilizes ~50 trees. 500 trees are more than sufficient, so there is no benefit
+beyond this amount. While the overall OOB error rate is relatively low (~15%), the class-specific error rates show that the model performs much better for non-churners than for churners. In particular, the error rate for churners remains high at ~43%, which suggests the model struggles more to identify the minority class.
+
+### 6.4 Tree-Based Ensemble Model Assumptions
+
+The Boosted C5.0 and Random Forest are flexible and have no strict assumptions on linearity or functional form, but they require careful tuning and evaluation to avoid overfitting and handle class imbalance. These were addressed during our challenger model development through class weighting and threshold tuning [@Gareth2014; @kennedy_2024].
+
+
+### 6.5 Pseudo R^2, SSE and RMSE Summary
+
+```{r gof-summary, echo=FALSE}
+gof_tbl <- data.frame(
+  Metric        = c("McFadden Pseudo R^2", "MSE (test)", 
+                    "RMSE (test)", "AUC (test)"),
+  Logistic      = round(c(as.numeric(pr2_logit['McFadden']), brier_logit_test, 
+                           rmse_logit_test, auc(roc_logit_test)), 4),
+  "Boosted C5.0" = round(c(NA, brier_boost_test, rmse_boost_test, auc(roc_boost_test)), 4),
+  "Random Forest" = round(c(NA, brier_rf_test, rmse_rf_test, auc(roc_rf_test)), 4)
+)
+kable(gof_tbl, caption = "Goodness-of-Fit Summary — All Models")
+```
+
+Pseudo-$R^2$ (only for logistic regression) estimates the goodness-of-fit by comparing the log-likelihood of a full model against an intercept-only model and typically ranges from 0 to 1. Higher values suggest better fit, with values greater than 0.20 considered as excellent [@Long1997]. Lower MSE (Brier score) and RMSE indicate better probability calibration [@UVABrier].
+
+
+### 6.6 Known Limitations
+
+**Logistic Regression:** [@Leung2021]
+
+- Assumes linear log-odds relationship — Box-Tidwell suggests age 
+  may be non-linear
+- Prone to overfitting in higher-dimensional spaces where the number of observations is low
+- Sensitive to influential observations flagged in Cook's Distance plot
+
+**Random Forest:** [@Perner2018]
+
+- Black-box: cannot explain individual predictions to customers 
+  or regulators
+- Required class weight correction due to 80/20 class imbalance, 
+  without this model predicted almost all "No"
+- Cannot extend beyond the range of the training data
+
+**Boosted C5.0:** [@Perner2018]
+
+- Boosted models may be susceptible to overfitting
+- Unlike logistic regression, boosted trees do not have simple, easily interpretable relationships (e.g., odds ratios), which makes them harder to explain in a business/regulatory context
+- Even if overall performance is strong, the model can still exhibit sensitivity to class imbalance
+
+**Dataset:**
+
+- Static cross-sectional snapshot, no time-series features like 
+  balance trend or transaction frequency
+- No information on competitor offers or macroeconomic conditions 
+  that may independently drive churn
+
+
+\newpage
+## VII. Ongoing Model Monitoring Plan (5 points)
+
+A deployed churn model operates in a live environment where customer 
+behavior, economic conditions, and bank product offerings continuously 
+evolve. Without active monitoring, a model that performs well today can 
+silently degrade and produce misleading scores [@sobolik_boudard_2024].
+
+### 7.1 Quantitative Monitoring Thresholds
+
+```{r monitoring, echo=FALSE}
+monitoring <- data.frame(
+  Metric = c("AUC (ROC)",
+             "Population Stability Index (PSI)",
+             "Accuracy",
+             "Actual vs Expected Churn Rate",
+             "Hosmer-Lemeshow p-value"),
+  Frequency = c("Monthly","Monthly","Monthly","Monthly","Quarterly"),
+  Alert_Threshold = c("Drop > 0.03 from baseline (below 0.81)",
+                      "PSI > 0.20",
+                      "Drop > 3% from baseline (below 0.80)",
+                      "Divergence > 5 percentage points",
+                      "p < 0.05"),
+  Action = c("Re-validate, consider retraining",
+             "Investigate data drift, retrain",
+             "Flag for review",
+             "Recalibrate probability outputs",
+             "Recalibrate model")
+)
+kable(monitoring, caption = "Model Monitoring Thresholds and Triggers")
+```
+
+Thresholds were set relative to our actual test results: AUC baseline 0.8629, 
+accuracy baseline 0.8469.
+
+### 7.2 Monitoring Assumptions
+
+The model assumes the following conditions remain stable during deployment:
+
+1. **Stable predictor distributions** — age, balance, and other inputs do 
+   not shift materially. Monitored via PSI, where PSI > 0.20 signals 
+   significant population shift requiring retraining.
+
+2. **Consistent data pipeline** — input data continues to be formatted 
+   identically to training data. Any upstream schema changes must trigger 
+   an immediate model review.
+
+3. **Stable churn definition** — the business definition of churn remains 
+   unchanged. Redefining churn invalidates the model entirely.
+
+4. **No structural breaks** — major economic shocks, regulatory changes, 
+   or bank mergers may fundamentally alter customer behavior in ways the 
+   model cannot anticipate.
+
+### 7.3 Model Replacement Triggers
+
+The model should be retired and fully rebuilt when any of the following occur:
+
+- AUC falls below 0.75 on two consecutive monthly monitoring samples
+- PSI exceeds 0.25 for two consecutive periods
+- A regulatory requirement mandates a different modeling approach
+- A challenger model demonstrates materially superior performance in 
+  a scheduled annual evaluation
+
+
+\newpage
+## VIII. Conclusion (5 points)
+
+We chose the Boosted C5.0 model based on its test performance and stability compared to its training performance. It achieved the highest AUC (0.8629), accuracy (0.8469), and the lowest prediction error (MSE and RMSE), which indicates strong discrimination and well-calibrated probabilities. While Random Forest showed comparable performance and slightly higher recall on the test set, it exhibited greater overfitting and weaker probability calibration, making it less robust overall. Logistic regression, although more interpretable, performed substantially worse across all metrics, so its predictive capability was not comparable to the other two models. Given the objective of accurately identifying customers at risk of churn, we select the Boosted model as the champion model since it provides the best balance of predictive performance and generalizability.
+
+## Bibliography (7 points)
+
+<div id="refs"></div>
+
+## Appendix (3 points)
+
+**Confusion Matrices**
+
+```{r, echo=FALSE}
+# Confusion Matrices
+print("Logistic Regression Train"); cm_logit_train
+print("Logistic Regression Test"); cm_logit_test
+
+print("Boosted C5.0 Train"); cm_boost_train
+print("Boosted C5.0 Test"); cm_boost_test
+
+print("Random Forest Train"); cm_rf_train
+print("Random Forest Test"); cm_rf_test
+```
+The confusion matrices compare each model's predicted vs. actual churn classifications across train and test sets, highlighting Random Forest's overfitting (near-perfect training accuracy that drops significantly on test data) and Logistic Regression's more consistent generalization.
+
+**ROC Curves**
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+# ROC Curves
+par(mfrow=c(2, 3), oma=c(0, 0, 3, 0))
+
+plot(roc_logit, col="steelblue", lwd=2, main="Train Logistic Regression", cex=0.8)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plot(roc_logit_test, col="steelblue", lwd=2, main="Test Logistic Regression", cex=0.8)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plot(roc_boost, col="steelblue", lwd=2, main="Train Boosted C5.0", cex=0.8)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plot(roc_boost_test, col="steelblue", lwd=2, main="Test Boosted C5.0", cex=0.8)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plot(roc_rf, col="steelblue", lwd=2, main="Train Random Forest", cex=0.8)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+plot(roc_rf_test, col="steelblue", lwd=2, main="Test Random Forest", cex=0.8)
+abline(a = 0, b = 1, lty = 2, col = "grey")
+
+title(main="Train and Test ROC Curves", outer=TRUE, cex.main=1.5)
+```
+The six ROC curves display each model's ability to distinguish between churned and non-churned customers across train and test sets, showing that Random Forest and Boosted C5.0 substantially outperform Logistic Regression, with the near-perfect Train Random Forest curve confirming overfitting to the training data.
+
+**Additional Data Analysis Plots**
+
+```{r, echo=FALSE}
+p7_AS <- ggplot(bank_factor, aes(x = churn, y = tenure, fill = churn)) +
+  geom_boxplot() +
+  labs(
+    title = "Tenure by Churn Status",
+    x = "Churn",
+    y = "Tenure"
+  ) +
+  guides(fill = "none")
+
+p8_AS <- ggplot(bank_factor, aes(x = credit_card, fill = churn)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Churn Proportion by Credit Card Status",
+    x = "Credit Card",
+    y = "Proportion",
+    fill = "Churn"
+  )
+
+(p7_AS + p8_AS) + plot_layout(ncol = 2)
+```
+Tenure by Churn Status (box plot): Customers who churned (Yes) tend to have higher and more variable tenure than those who didn't, suggesting that longer-tenured customers are not necessarily more loyal and may still leave the bank.
+
+Churn Proportion by Credit Card Status (stacked bar): The churn rate is nearly identical between customers with and without a credit card (~20% each), indicating that credit card ownership has little to no predictive power for churn
+
+**Aggregated Model Metrics**
+
+```{r, echo=FALSE}
+round(data.frame(rbind(
+  r_logit,
+  r_boost,
+  r_rf
+)), 4)
+```
+Aggregated Model Metrics table: This table compares all three models (Logistic Regression, Boosted C5.0, Random Forest) across train and test sets on metrics like accuracy, AUC, and F1-score, revealing that Random Forest revealed high training performance which showed signs of overfitting, while Boosted C5.0 offered the strongest balance between train and test generalization.
