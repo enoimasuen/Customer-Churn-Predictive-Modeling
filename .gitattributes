@@ -7,3 +7,6 @@
 # badge accurate and collapses these files in diffs.
 
 *.html linguist-generated
+*.Rmd linguist-language=R
+
+
