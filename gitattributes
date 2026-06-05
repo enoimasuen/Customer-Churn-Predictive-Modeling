@@ -1,0 +1,9 @@
+# .gitattributes
+#
+# Exclude exported notebook HTML from GitHub's language statistics.
+# Notebook HTML exports embed plots as base64, so they're large and
+# otherwise dominate the language badge — making a Python/Jupyter
+# project show up as "HTML". Marking them as generated keeps the
+# badge accurate and collapses these files in diffs.
+
+*.html linguist-generated
