@@ -70,10 +70,10 @@ The Boosted C5.0 model was selected because it achieved the highest AUC, the low
 
 ```
 .
-├── README.md                            # You are here
-├── FINAL_group_project.Rmd              # Full analysis source (R Markdown)
-├── FINAL_group_project.pdf              # Rendered report (PDF)
-├── FINAL_group_project.html             # Rendered report (HTML)
+├── README.md                            
+├── Customer-Churn-ML.Rmd              # Full analysis source (R Markdown)
+├── Customer-Churn-ML.pdf              # Rendered report (PDF)
+├── Customer-Churn-ML.html             # Rendered report (HTML)
 ├── Bank Customer Churn Prediction.csv   # Raw dataset (10,000 customers)
 └── refs.bib                             # BibTeX bibliography
 ```
