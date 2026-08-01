@@ -261,7 +261,7 @@ Ensure `Bank Customer Churn Prediction.csv` and `refs.bib` are in the same direc
 From RStudio, open the `.Rmd` and click **Knit** (PDF or HTML), or run from the console:
 
 ```r
-rmarkdown::render("FINAL_group_project.Rmd")
+rmarkdown::render("Customer-Churn-ML.Rmd")
 ```
 
 The Random Forest uses `set.seed(1023)`, so results are fully reproducible.
