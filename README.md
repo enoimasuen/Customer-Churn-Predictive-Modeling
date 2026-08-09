@@ -2,6 +2,8 @@
 
 ### A Comparative Study of Logistic Regression, Boosted C5.0, and Random Forest
 
+## 📊 [View the Full Interactive HTML Report](https://enoimasuen.github.io/Customer-Churn-Predictive-Modeling/Customer-Churn-ML.html)
+
 ![R](https://img.shields.io/badge/R-%E2%89%A54.2-276DC3?logo=r&logoColor=white)
 ![R Markdown](https://img.shields.io/badge/R%20Markdown-knit%20to%20PDF%20%2F%20HTML-1F65B7?logo=rstudio&logoColor=white)
 ![Models](https://img.shields.io/badge/models-Logistic%20%7C%20C5.0%20%7C%20Random%20Forest-success)
